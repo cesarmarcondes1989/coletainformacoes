@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Coleta de Informações — Protótipo Navegável</title>
+<style>
+  :root{
+    --bg:#0f1117; --panel:#171a23; --panel2:#1e2230; --border:#2a2f40;
+    --text:#e8eaf0; --muted:#9aa1b4; --brand:#5b7cfa; --brand2:#7b5bfa;
+    --ok:#2ecc71; --warn:#f1c40f; --danger:#e74c3c; --chip:#262b3b;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,#1b2030,transparent),var(--bg);
+    color:var(--text);min-height:100vh;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:24px 18px 80px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .logo .dot{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:grid;place-items:center;font-size:15px}
+  .who{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .who b{color:var(--text)}
+  .who a{color:var(--brand);cursor:pointer;text-decoration:none}
+
+  .steps{display:flex;gap:6px;margin-bottom:20px}
+  .steps .s{flex:1;height:5px;border-radius:4px;background:var(--border)}
+  .steps .s.active{background:linear-gradient(90deg,var(--brand),var(--brand2))}
+  .steps .s.done{background:var(--brand)}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  h1{font-size:21px;margin:0 0 6px}
+  h2{font-size:16px;margin:0 0 4px}
+  p.sub{color:var(--muted);margin:0 0 18px;font-size:14px;line-height:1.5}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+  input[type=text],textarea,select{
+    width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);padding:12px 13px;font-size:14px;font-family:inherit;outline:none;
+  }
+  input:focus,textarea:focus{border-color:var(--brand)}
+  textarea{min-height:120px;resize:vertical;line-height:1.5}
+
+  .btn{appearance:none;border:0;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;background:linear-gradient(135deg,var(--brand),var(--brand2));transition:.15s}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text)}
+  .btn.sm{padding:9px 13px;font-size:13px}
+  .btn.ok{background:linear-gradient(135deg,#2ecc71,#27ae60)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  .row.end{justify-content:flex-end}
+  .row.between{justify-content:space-between}
+
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+  .mode{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;transition:.15s}
+  .mode:hover{border-color:var(--brand)}
+  .mode.active{border-color:var(--brand);background:#202742;box-shadow:0 0 0 3px rgba(91,124,250,.15)}
+  .mode .ic{font-size:24px;margin-bottom:6px}
+  .mode .t{font-size:13px;font-weight:600}
+  .mode .d{font-size:11px;color:var(--muted);margin-top:2px}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:5px 11px;font-size:12px;color:var(--muted)}
+  .chip b{color:var(--text)}
+  .chip.lang{border-color:#3a4670;color:#cdd6ff}
+  .badge{display:inline-block;background:#23314f;color:#9ec1ff;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600}
+
+  .ai-box{background:linear-gradient(180deg,#1b2034,#171a23);border:1px solid #2c3554;border-radius:12px;padding:16px;margin-top:8px}
+  .ai-head{display:flex;align-items:center;gap:8px;font-size:13px;color:#aebbff;margin-bottom:10px}
+  .ai-head .spark{font-size:15px}
+  .field-detected{display:flex;align-items:center;gap:10px;margin:10px 0}
+  .field-detected .k{width:90px;color:var(--muted);font-size:13px}
+  .field-detected .v{flex:1}
+  .confidence{font-size:11px;color:var(--muted)}
+
+  .rec{display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px 0}
+  .rec .mic{width:88px;height:88px;border-radius:50%;background:var(--panel2);border:1px solid var(--border);display:grid;place-items:center;font-size:34px;cursor:pointer;transition:.2s}
+  .rec .mic.live{background:rgba(231,76,60,.15);border-color:var(--danger);animation:pulse 1.2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(231,76,60,.45)}100%{box-shadow:0 0 0 18px rgba(231,76,60,0)}}
+  .rec .time{font-variant-numeric:tabular-nums;font-size:22px;font-weight:700}
+  .rec .hint{font-size:12px;color:var(--muted)}
+
+  .record-item{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+  .record-item .h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .record-item .names{font-size:14px;font-weight:600}
+  .record-item .meta{font-size:11px;color:var(--muted);text-align:right;white-space:nowrap}
+  .record-item .txt{font-size:13px;color:#c7ccda;margin-top:8px;line-height:1.5}
+
+  .summary{background:linear-gradient(180deg,#16203a,#141826);border:1px solid #2c3a5c;border-radius:12px;padding:18px;line-height:1.6;font-size:14px}
+  .summary h3{margin:0 0 10px;font-size:15px;color:#bcd0ff}
+  .summary ul{margin:8px 0;padding-left:18px}
+  .summary li{margin:4px 0}
+  .stat-row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+  .stat{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:90px}
+  .stat .n{font-size:20px;font-weight:700}
+  .stat .l{font-size:11px;color:var(--muted)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:#222838;border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .hidden{display:none!important}
+  .proto-flag{position:fixed;top:0;left:0;right:0;text-align:center;font-size:11px;background:#3a2a12;color:#f1c40f;padding:3px;letter-spacing:.5px;z-index:40}
+  .center{text-align:center}
+  .big-ic{font-size:46px}
+  .muted{color:var(--muted)}
+  .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .examples{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .examples .ex{font-size:11px;background:var(--chip);border:1px solid var(--border);border-radius:8px;padding:6px 9px;cursor:pointer;color:var(--muted)}
+  .examples .ex:hover{color:var(--text);border-color:var(--brand)}
+</style>
+</head>
+<body>
+<div class="proto-flag">PROTÓTIPO NAVEGÁVEL — dados simulados (localStorage). Sem Supabase/OpenAI reais ainda.</div>
+<div class="wrap">
+  <header class="top">
+    <div class="logo"><span class="dot">🎙️</span> Coleta de Informações</div>
+    <div class="who" id="who"></div>
+  </header>
+
+  <div class="steps" id="steps">
+    <div class="s" data-step="1"></div>
+    <div class="s" data-step="2"></div>
+    <div class="s" data-step="3"></div>
+    <div class="s" data-step="4"></div>
+    <div class="s" data-step="5"></div>
+  </div>
+
+  <div id="app"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   PROTÓTIPO — Coleta de Informações
+   Simula: Supabase (localStorage) + OpenAI Whisper/GPT (regras locais)
+   ============================================================ */
+
+const DB_KEY = 'coleta_records_v1';
+const USER_KEY = 'coleta_user_v1';
+
+const State = {
+  user: localStorage.getItem(USER_KEY) || '',
+  mode: 'text',           // text | audio | file
+  rawText: '',            // texto digitado ou "transcrição"
+  language: '',           // pt | en
+  detectedClient: '',
+  detectedOperator: '',
+  draft: null,
+};
+
+/* ---------- Banco simulado ---------- */
+function loadDB(){
+  try{ return JSON.parse(localStorage.getItem(DB_KEY)) || []; }catch(e){ return []; }
+}
+function saveDB(records){ localStorage.setItem(DB_KEY, JSON.stringify(records)); }
+function seedDB(){
+  if(loadDB().length) return;
+  const seed = [
+    {id:uid(),recordedBy:'Mariana Alves',client:'João Pereira',operator:'Carlos Souza',language:'pt',
+     text:'Falei com o cliente João Pereira sobre a renovação do contrato. O operador Carlos Souza ofereceu desconto de 10% e ele pediu para pensar até sexta.',
+     createdAt:daysAgo(8)},
+    {id:uid(),recordedBy:'Pedro Lima',client:'João Pereira',operator:'Ana Ribeiro',language:'pt',
+     text:'Conversei com João Pereira novamente. A operadora Ana Ribeiro confirmou o desconto e ele aceitou renovar por 12 meses.',
+     createdAt:daysAgo(5)},
+    {id:uid(),recordedBy:'Mariana Alves',client:'Sarah Johnson',operator:'Carlos Souza',language:'en',
+     text:'I spoke with the client Sarah Johnson about the new plan. Operator Carlos Souza explained the pricing and she asked for a proposal by email.',
+     createdAt:daysAgo(3)},
+  ];
+  saveDB(seed);
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function daysAgo(n){ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString(); }
+function fmtDate(iso){ const d=new Date(iso); return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+/* ---------- "IA" simulada (substituída por OpenAI no código real) ---------- */
+function detectLanguage(text){
+  const t = ' '+text.toLowerCase()+' ';
+  const pt = [' o ',' a ',' com ',' falei',' conversei',' cliente',' operador',' não',' você',' sobre',' que ',' ele ',' ela '];
+  const en = [' the ',' with ',' spoke',' talked',' client',' operator',' about',' she ',' he ',' and ',' to ',' i '];
+  let ps=0, es=0;
+  pt.forEach(w=>{ if(t.includes(w)) ps++; });
+  en.forEach(w=>{ if(t.includes(w)) es++; });
+  return es>ps ? 'en' : 'pt';
+}
+function extractNames(text){
+  // Heurística simples: procura "cliente/operador <Nome>" e nomes próprios capitalizados.
+  const res = {client:'', operator:''};
+  const clientRe = /(?:cliente|client)\s+([A-ZÀ-Ý][a-zà-ÿ]+(?:\s+[A-ZÀ-Ý][a-zà-ÿ]+){0,2})/;
+  const opRe = /(?:operador|operadora|operator|atendente)\s+([A-ZÀ-Ý][a-zà-ÿ]+(?:\s+[A-ZÀ-Ý][a-zà-ÿ]+){0,2})/i;
+  const cm = text.match(clientRe); if(cm) res.client = cm[1].trim();
+  const om = text.match(opRe); if(om) res.operator = om[1].trim();
+  // fallback: pega nomes próprios (2 palavras capitalizadas) se faltou algum
+  if(!res.client || !res.operator){
+    const names = [...text.matchAll(/([A-ZÀ-Ý][a-zà-ÿ]+\s+[A-ZÀ-Ý][a-zà-ÿ]+)/g)].map(m=>m[1]);
+    const uniq = [...new Set(names)];
+    if(!res.client && uniq[0]) res.client = uniq[0];
+    if(!res.operator && uniq.find(n=>n!==res.client)) res.operator = uniq.find(n=>n!==res.client);
+  }
+  return res;
+}
+const SAMPLE_TRANSCRIPTS = {
+  pt:'Falei com o cliente Roberto Mendes sobre o pedido atrasado. O operador Carlos Souza prometeu retorno em 24 horas e o cliente ficou satisfeito.',
+  en:'I talked with the client Sarah Johnson about the renewal. The operator Ana Ribeiro sent the updated proposal and she will reply tomorrow.'
+};
+
+/* ---------- Navegação ---------- */
+const app = document.getElementById('app');
+function setSteps(n){
+  document.querySelectorAll('#steps .s').forEach(s=>{
+    const step = +s.dataset.step;
+    s.classList.toggle('active', step===n);
+    s.classList.toggle('done', step<n);
+  });
+}
+function renderWho(){
+  const el = document.getElementById('who');
+  if(State.user){
+    el.innerHTML = `Gravando como <b>${escapeHtml(State.user)}</b> · <a onclick="changeUser()">trocar</a>`;
+  } else { el.innerHTML = ''; }
+}
+function changeUser(){ State.user=''; localStorage.removeItem(USER_KEY); screenLogin(); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ===== TELA 0/1 — Identificação (QUEM grava) ===== */
+function screenLogin(){
+  setSteps(1); renderWho();
+  app.innerHTML = `
+    <div class="card">
+      <h1>Quem está gravando?</h1>
+      <p class="sub">Toda informação registrada fica vinculada a você. No sistema real, isso vem do login (Supabase Auth).</p>
+      <label>Seu nome</label>
+      <input type="text" id="userName" placeholder="Ex.: Mariana Alves" value="${escapeHtml(State.user)}" />
+      <div class="row end">
+        <button class="btn" id="loginBtn" disabled>Continuar →</button>
+      </div>
+    </div>`;
+  const inp = document.getElementById('userName');
+  const btn = document.getElementById('loginBtn');
+  const upd = ()=> btn.disabled = inp.value.trim().length<2;
+  inp.addEventListener('input', upd); upd();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter'&&!btn.disabled) btn.click(); });
+  btn.onclick = ()=>{ State.user=inp.value.trim(); localStorage.setItem(USER_KEY,State.user); screenCapture(); };
+  inp.focus();
+}
+
+/* ===== TELA 2 — Captura (áudio / arquivo / texto) ===== */
+function screenCapture(){
+  setSteps(2); renderWho();
+  app.innerHTML = `
+    <div class="card">
+      <h1>Registrar conversa</h1>
+      <p class="sub">Conte com quem você conversou e o que foi tratado. Pode gravar áudio (PT ou EN) ou digitar — a IA detecta o idioma e identifica cliente e operador.</p>
+      <div class="modes">
+        <div class="mode ${State.mode==='audio'?'active':''}" data-m="audio"><div class="ic">🎤</div><div class="t">Gravar áudio</div><div class="d">microfone</div></div>
+        <div class="mode ${State.mode==='file'?'active':''}" data-m="file"><div class="ic">📁</div><div class="t">Enviar arquivo</div><div class="d">.mp3 / .wav</div></div>
+        <div class="mode ${State.mode==='text'?'active':''}" data-m="text"><div class="ic">⌨️</div><div class="t">Digitar texto</div><div class="d">escrever</div></div>
+      </div>
+      <div id="modeBody"></div>
+      <div class="row between">
+        <button class="btn ghost" onclick="screenLogin()">← Voltar</button>
+        <button class="btn" id="procBtn">Processar com IA →</button>
+      </div>
+    </div>`;
+  document.querySelectorAll('.mode').forEach(m=>m.onclick=()=>{ State.mode=m.dataset.m; screenCapture(); });
+  document.getElementById('procBtn').onclick = onProcess;
+  renderModeBody();
+}
+function renderModeBody(){
+  const body = document.getElementById('modeBody');
+  if(State.mode==='text'){
+    body.innerHTML = `
+      <label>O que você quer registrar?</label>
+      <textarea id="rawText" placeholder="Ex.: Falei com o cliente João Pereira sobre a renovação. O operador Carlos Souza ofereceu 10% de desconto...">${escapeHtml(State.rawText)}</textarea>
+      <div class="examples">
+        <span class="ex" data-ex="pt">Exemplo (PT)</span>
+        <span class="ex" data-ex="en">Exemplo (EN)</span>
+      </div>`;
+    const ta = document.getElementById('rawText');
+    ta.addEventListener('input', ()=> State.rawText=ta.value);
+    body.querySelectorAll('.ex').forEach(e=>e.onclick=()=>{ ta.value=SAMPLE_TRANSCRIPTS[e.dataset.ex]; State.rawText=ta.value; });
+  } else if(State.mode==='file'){
+    body.innerHTML = `
+      <label>Arquivo de áudio</label>
+      <input type="text" id="fileFake" readonly placeholder="Clique para escolher um arquivo (simulado)" style="cursor:pointer" />
+      <p class="sub" style="margin-top:10px">No protótipo, o upload é simulado e gera uma transcrição de exemplo. No sistema real, o áudio vai para o OpenAI Whisper.</p>`;
+    document.getElementById('fileFake').onclick = ()=>{
+      const lang = Math.random()>.5?'pt':'en';
+      State.rawText = SAMPLE_TRANSCRIPTS[lang];
+      document.getElementById('fileFake').value = lang==='pt'?'conversa_cliente_pt.mp3':'client_call_en.mp3';
+      toast('Arquivo carregado (simulado)');
+    };
+  } else {
+    body.innerHTML = `
+      <div class="rec">
+        <div class="mic" id="micBtn">🎤</div>
+        <div class="time" id="recTime">00:00</div>
+        <div class="hint" id="recHint">Toque para iniciar a gravação (simulada)</div>
+      </div>`;
+    let live=false, sec=0, timer=null;
+    const mic=document.getElementById('micBtn'), time=document.getElementById('recTime'), hint=document.getElementById('recHint');
+    mic.onclick=()=>{
+      live=!live;
+      if(live){
+        mic.classList.add('live'); hint.textContent='Gravando... toque para parar'; sec=0;
+        timer=setInterval(()=>{ sec++; time.textContent=`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`; },1000);
+      } else {
+        mic.classList.remove('live'); clearInterval(timer);
+        const lang = Math.random()>.5?'pt':'en';
+        State.rawText = SAMPLE_TRANSCRIPTS[lang];
+        hint.textContent='Gravação concluída — transcrição gerada (simulada). Clique em Processar.';
+      }
+    };
+  }
+}
+
+/* ===== Processamento (IA simulada) ===== */
+function onProcess(){
+  if(!State.rawText || State.rawText.trim().length<5){ toast('Adicione texto ou grave/envie um áudio primeiro.'); return; }
+  setSteps(3); renderWho();
+  app.innerHTML = `
+    <div class="card center">
+      <div class="big-ic">✨</div>
+      <h1>Processando com IA…</h1>
+      <p class="sub">Transcrevendo, detectando idioma e identificando cliente e operador.</p>
+      <p><span class="spinner"></span></p>
+    </div>`;
+  setTimeout(()=>{
+    State.language = detectLanguage(State.rawText);
+    const n = extractNames(State.rawText);
+    State.detectedClient = n.client;
+    State.detectedOperator = n.operator;
+    screenConfirm();
+  }, 1100);
+}
+
+/* ===== TELA 3 — Confirmação dos nomes (campo de texto p/ usuário validar) ===== */
+function screenConfirm(){
+  setSteps(3); renderWho();
+  const langLabel = State.language==='en' ? '🇬🇧 Inglês' : '🇧🇷 Português';
+  app.innerHTML = `
+    <div class="card">
+      <h1>Confirme antes de registrar</h1>
+      <p class="sub">A IA identificou o idioma e os nomes abaixo. <b>Revise e corrija</b> se necessário antes de salvar.</p>
+
+      <div class="ai-box">
+        <div class="ai-head"><span class="spark">✨</span> Identificado automaticamente <span class="chip lang" style="margin-left:auto">${langLabel}</span></div>
+        <div class="field-detected">
+          <div class="k">Cliente</div>
+          <div class="v"><input type="text" id="cClient" value="${escapeHtml(State.detectedClient)}" placeholder="Nome do cliente"/></div>
+        </div>
+        <div class="field-detected">
+          <div class="k">Operador</div>
+          <div class="v"><input type="text" id="cOperator" value="${escapeHtml(State.detectedOperator)}" placeholder="Nome do operador"/></div>
+        </div>
+      </div>
+
+      <label>Conteúdo registrado (transcrição / texto)</label>
+      <textarea id="cText">${escapeHtml(State.rawText)}</textarea>
+
+      <div class="row between">
+        <button class="btn ghost" onclick="screenCapture()">← Refazer</button>
+        <button class="btn ok" id="saveBtn">✓ Confirmar e registrar</button>
+      </div>
+    </div>`;
+  document.getElementById('saveBtn').onclick = ()=>{
+    const client = document.getElementById('cClient').value.trim();
+    const operator = document.getElementById('cOperator').value.trim();
+    const text = document.getElementById('cText').value.trim();
+    if(!client){ toast('Informe o nome do cliente.'); return; }
+    const rec = { id:uid(), recordedBy:State.user, client, operator, language:State.language, text, createdAt:new Date().toISOString() };
+    const db = loadDB(); db.push(rec); saveDB(db);
+    State.draft = rec;
+    screenSaved();
+  };
+}
+
+/* ===== TELA 4 — Salvo + pergunta buscar mais informações ===== */
+function screenSaved(){
+  setSteps(4); renderWho();
+  const r = State.draft;
+  app.innerHTML = `
+    <div class="card center">
+      <div class="big-ic">✅</div>
+      <h1>Registro salvo!</h1>
+      <p class="sub">Gravado por <b>${escapeHtml(r.recordedBy)}</b> em ${fmtDate(r.createdAt)}.</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:6px">
+        <span class="chip">Cliente: <b>${escapeHtml(r.client)}</b></span>
+        <span class="chip">Operador: <b>${escapeHtml(r.operator||'—')}</b></span>
+        <span class="chip lang">${r.language==='en'?'🇬🇧 EN':'🇧🇷 PT'}</span>
+      </div>
+    </div>
+    <div class="card center">
+      <h2>Buscar mais informações sobre <span class="badge">${escapeHtml(r.client)}</span>?</h2>
+      <p class="sub">O sistema consulta todos os registros (de todos os clientes e usuários) e gera um resumo geral: quem conversou e o que foi dito.</p>
+      <div class="row" style="justify-content:center">
+        <button class="btn ghost" onclick="screenCapture()">Não, novo registro</button>
+        <button class="btn" onclick="screenSummary('${escapeHtml(r.client)}')">🔎 Sim, buscar resumo</button>
+      </div>
+    </div>`;
+}
+
+/* ===== TELA 5 — Resumo geral do cliente ===== */
+function screenSummary(client){
+  setSteps(5); renderWho();
+  app.innerHTML = `<div class="card center"><div class="big-ic">🧠</div><h1>Gerando resumo…</h1><p class="sub">Lendo todos os registros e consolidando.</p><p><span class="spinner"></span></p></div>`;
+  setTimeout(()=>renderSummary(client), 1000);
+}
+function renderSummary(client){
+  const db = loadDB();
+  const recs = db.filter(r=>r.client.toLowerCase()===client.toLowerCase()).sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  const operators = [...new Set(recs.map(r=>r.operator).filter(Boolean))];
+  const recorders = [...new Set(recs.map(r=>r.recordedBy))];
+  const langs = [...new Set(recs.map(r=>r.language))];
+
+  const summaryText = buildSummary(client, recs, operators, recorders);
+  const items = recs.map(r=>`
+    <div class="record-item">
+      <div class="h">
+        <div class="names">👤 ${escapeHtml(r.client)} ${r.operator?`· operador ${escapeHtml(r.operator)}`:''}</div>
+        <div class="meta">${fmtDate(r.createdAt)}<br/>por ${escapeHtml(r.recordedBy)} ${r.language==='en'?'🇬🇧':'🇧🇷'}</div>
+      </div>
+      <div class="txt">${escapeHtml(r.text)}</div>
+    </div>`).join('');
+
+  setSteps(5); renderWho();
+  app.innerHTML = `
+    <div class="card">
+      <h1>Resumo de ${escapeHtml(client)}</h1>
+      <p class="sub">Consolidado de todos os registros encontrados no banco.</p>
+      <div class="stat-row">
+        <div class="stat"><div class="n">${recs.length}</div><div class="l">registros</div></div>
+        <div class="stat"><div class="n">${operators.length}</div><div class="l">operadores</div></div>
+        <div class="stat"><div class="n">${recorders.length}</div><div class="l">quem gravou</div></div>
+        <div class="stat"><div class="n">${langs.map(l=>l==='en'?'EN':'PT').join('/')||'—'}</div><div class="l">idiomas</div></div>
+      </div>
+      <div class="summary">
+        <h3>✨ Resumo geral (gerado por IA)</h3>
+        ${summaryText}
+      </div>
+    </div>
+    <div class="card">
+      <h2>Histórico completo</h2>
+      <p class="sub">Todas as conversas registradas com este cliente.</p>
+      ${items || '<p class="muted">Nenhum registro encontrado.</p>'}
+    </div>
+    <div class="row" style="justify-content:center">
+      <button class="btn ghost" onclick="screenCapture()">+ Novo registro</button>
+      <button class="btn" onclick="screenSearch()">🔎 Buscar outro cliente</button>
+    </div>`;
+}
+function buildSummary(client, recs, operators, recorders){
+  if(!recs.length) return `<p>Não há registros para <b>${escapeHtml(client)}</b> ainda.</p>`;
+  const first = recs[0], last = recs[recs.length-1];
+  const ops = operators.length ? operators.map(escapeHtml).join(', ') : 'nenhum operador identificado';
+  return `
+    <p><b>${escapeHtml(client)}</b> aparece em <b>${recs.length}</b> conversa(s), registradas por <b>${recorders.map(escapeHtml).join(', ')}</b>, entre ${fmtDate(first.createdAt)} e ${fmtDate(last.createdAt)}.</p>
+    <p>Operadores que falaram com este cliente: <b>${ops}</b>.</p>
+    <p>Principais pontos conversados:</p>
+    <ul>${recs.map(r=>`<li><b>${escapeHtml(r.operator||r.recordedBy)}:</b> ${escapeHtml(r.text)}</li>`).join('')}</ul>`;
+}
+
+/* ===== Busca livre de cliente ===== */
+function screenSearch(){
+  setSteps(5); renderWho();
+  const db = loadDB();
+  const clients = [...new Set(db.map(r=>r.client))];
+  app.innerHTML = `
+    <div class="card">
+      <h1>Buscar cliente</h1>
+      <p class="sub">Escolha um cliente para ver o resumo consolidado.</p>
+      <label>Nome do cliente</label>
+      <input type="text" id="searchInput" list="clientList" placeholder="Digite ou escolha..." />
+      <datalist id="clientList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist>
+      <div class="examples">${clients.map(c=>`<span class="ex" data-c="${escapeHtml(c)}">${escapeHtml(c)}</span>`).join('')}</div>
+      <div class="row between">
+        <button class="btn ghost" onclick="screenCapture()">← Voltar</button>
+        <button class="btn" id="goSearch">Ver resumo →</button>
+      </div>
+    </div>`;
+  const inp=document.getElementById('searchInput');
+  document.querySelectorAll('.ex').forEach(e=>e.onclick=()=>{ inp.value=e.dataset.c; });
+  document.getElementById('goSearch').onclick=()=>{ if(inp.value.trim()) renderSummary(inp.value.trim()); else toast('Escolha um cliente.'); };
+}
+
+/* ---------- Boot ---------- */
+seedDB();
+if(State.user) screenCapture(); else screenLogin();
+</script>
+</body>
+</html>
