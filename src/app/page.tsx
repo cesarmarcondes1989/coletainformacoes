@@ -266,6 +266,10 @@ export default function Page() {
       {authReady && screen === "dashboard" && (
         <DashboardScreen stats={stats} onEntity={(name: string) => runLookup(name)} tab={tab} go={nav} />
       )}
+
+      {authReady && (screen === "capture" || screen === "search" || screen === "dashboard") && (
+        <Nav tab={tab} go={nav} />
+      )}
     </div>
   );
 }
@@ -419,9 +423,6 @@ function CaptureScreen({ user, text, setText, recent, onRecord, onText, tab, go,
           </div>
         )}
       </div>
-
-      <div className="flex-1" style={{ minHeight: 12 }} />
-      <Nav tab={tab} go={go} />
     </div>
   );
 }
@@ -630,8 +631,6 @@ function SearchScreen({ entities, onResult, tab, go }: any) {
           ))}
         </div>
       </div>
-      <div className="flex-1" style={{ minHeight: 12 }} />
-      <Nav tab={tab} go={go} />
     </div>
   );
 }
@@ -769,8 +768,6 @@ function DashboardScreen({ stats, onEntity, tab, go }: any) {
           ))}
         </div>
       )}
-
-      <Nav tab={tab} go={go} />
     </div>
   );
 }
