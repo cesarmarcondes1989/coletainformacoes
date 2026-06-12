@@ -66,6 +66,14 @@ npm run dev                      # http://localhost:3000
 | `POST /api/records` | Confirma e salva o registro (update do áudio ou insert de texto). |
 | `POST /api/summary` | Consolida todos os registros de um cliente + resumo por IA. |
 | `GET /api/stats` | Dashboard: ranking de quem mais coletou e clientes com mais informações. |
+| `POST /api/match` | Auto-checagem: nomes de cliente/operador semelhantes já existentes (dedupe). |
+| `POST /api/lookup` | Busca universal por cliente OU operador (resumo por IA + histórico nos dois papéis). |
+
+### Auto-checagem (anti-duplicidade)
+Depois que a IA identifica os nomes, o app compara com a base (similaridade com acentos/caixa normalizados + Levenshtein) e sugere **registros já existentes** como chips clicáveis. Se nada for parecido, mostra **"criar novo"**. Evita duplicados como `João Pereira` vs `Joao pereira`.
+
+### Busca universal (aba 🔎 Buscar)
+Busca por **cliente OU operador** num único campo (com autocomplete). Reúne tudo sobre a pessoa nos dois papéis, com **resumo por IA + histórico**. Operadores no dashboard são clicáveis e caem direto nessa busca.
 
 ### Dashboard
 Aba **📊 Dashboard** no topo mostra:

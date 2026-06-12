@@ -89,5 +89,19 @@ export async function GET(req: NextRequest) {
     const clients = Array.from(new Set((data || []).map((r: any) => r.client_name))).sort();
     return NextResponse.json({ clients });
   }
+  if (searchParams.get("entities")) {
+    // Clientes + operadores (união) para autocomplete da busca universal.
+    const { data, error } = await supabaseAdmin
+      .from("records")
+      .select("client_name, operator_name")
+      .eq("confirmed", true);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const set = new Set<string>();
+    for (const r of data || []) {
+      if (r.client_name) set.add(r.client_name.trim());
+      if (r.operator_name) set.add(r.operator_name.trim());
+    }
+    return NextResponse.json({ names: Array.from(set).filter(Boolean).sort() });
+  }
   return NextResponse.json({ error: "Parâmetro inválido." }, { status: 400 });
 }

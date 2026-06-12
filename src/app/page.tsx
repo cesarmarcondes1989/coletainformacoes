@@ -19,7 +19,7 @@ export default function Page() {
   const supabase = useMemo(() => createSupabaseBrowser(), []);
   const [authReady, setAuthReady] = useState(false);
   const [step, setStep] = useState<Step>("login");
-  const [view, setView] = useState<"collect" | "dashboard">("collect");
+  const [view, setView] = useState<"collect" | "dashboard" | "lookup">("collect");
   const [stats, setStats] = useState<any>(null);
   const [user, setUser] = useState(""); // nome de exibição do usuário autenticado
   const [busyMsg, setBusyMsg] = useState("");
@@ -36,6 +36,11 @@ export default function Page() {
   // confirmação
   const [client, setClient] = useState("");
   const [operator, setOperator] = useState("");
+  const [detected, setDetected] = useState({ client: "", operator: "" });
+  const [matches, setMatches] = useState<{ client: any[]; operator: any[] }>({ client: [], operator: [] });
+
+  // busca universal
+  const [lookup, setLookup] = useState<any>(null);
 
   // salvo / resumo
   const [savedClient, setSavedClient] = useState("");
@@ -139,6 +144,7 @@ export default function Page() {
       if (!res.ok) throw new Error(data.error || "Falha na identificação.");
       setClient(data.client || "");
       setOperator(data.operator || "");
+      setDetected({ client: data.client || "", operator: data.operator || "" });
       setDraft((d) => ({
         ...d,
         recordId,
@@ -147,6 +153,20 @@ export default function Page() {
         language: lang || data.language || d.language,
         audioSaved: source === "audio" ? d.audioSaved : false,
       }));
+
+      // Auto-checagem: busca clientes/operadores parecidos já existentes.
+      try {
+        const mres = await fetch("/api/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client: data.client || "", operator: data.operator || "" }),
+        });
+        const mdata = await mres.json();
+        setMatches({ client: mdata.clientMatches || [], operator: mdata.operatorMatches || [] });
+      } catch {
+        setMatches({ client: [], operator: [] });
+      }
+
       setStep("confirm");
     } catch (e: any) {
       alert(e.message);
@@ -216,6 +236,29 @@ export default function Page() {
     loadSummary(name);
   }
 
+  function openLookup(prefill?: string) {
+    setView("lookup");
+    setLookup(null);
+    if (prefill) runLookup(prefill);
+  }
+
+  async function runLookup(name: string) {
+    if (!name.trim()) return;
+    setLookup({ loading: true });
+    try {
+      const res = await fetch("/api/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Falha na busca.");
+      setLookup(data);
+    } catch (e: any) {
+      setLookup({ error: e.message });
+    }
+  }
+
   async function openSearch() {
     setStep("search");
     try {
@@ -244,10 +287,13 @@ export default function Page() {
         <>
         <div className="nav">
           <button className={view === "collect" ? "active" : ""} onClick={() => setView("collect")}>🎙️ Coletar</button>
+          <button className={view === "lookup" ? "active" : ""} onClick={() => openLookup()}>🔎 Buscar</button>
           <button className={view === "dashboard" ? "active" : ""} onClick={openDashboard}>📊 Dashboard</button>
         </div>
 
-        {view === "dashboard" && <Dashboard stats={stats} onClient={clientFromDashboard} />}
+        {view === "dashboard" && <Dashboard stats={stats} onClient={clientFromDashboard} onEntity={openLookup} />}
+
+        {view === "lookup" && <Lookup result={lookup} onRun={runLookup} />}
 
         {view === "collect" && (
         <>
@@ -287,6 +333,8 @@ export default function Page() {
             language={draft.language}
             source={draft.source}
             audioSaved={draft.audioSaved}
+            detected={detected}
+            matches={matches}
             onBack={() => setStep("capture")}
             onSave={saveRecord}
           />
@@ -435,12 +483,12 @@ function Capture({ text, setText, recorder, onMic, onProcess, onBack, audioSaved
   );
 }
 
-function Confirm({ client, setClient, operator, setOperator, text, setText, language, source, audioSaved, onBack, onSave }: any) {
+function Confirm({ client, setClient, operator, setOperator, text, setText, language, source, audioSaved, detected, matches, onBack, onSave }: any) {
   const langLabel = language === "en" ? "🇬🇧 Inglês" : language === "pt" ? "🇧🇷 Português" : "idioma não detectado";
   return (
     <div className="card">
       <h1>Confirme antes de registrar</h1>
-      <p className="sub">A IA identificou os nomes abaixo. <b>Revise e corrija</b> antes de salvar.</p>
+      <p className="sub">A IA identificou os nomes abaixo. <b>Revise e corrija</b> antes de salvar. Comparamos com a base e sugerimos registros já existentes para evitar duplicados.</p>
 
       <div className="ai-box">
         <div className="ai-head"><span>✨</span> Identificado automaticamente
@@ -449,10 +497,12 @@ function Confirm({ client, setClient, operator, setOperator, text, setText, lang
           <div className="k">Cliente</div>
           <div className="v"><input type="text" value={client} onChange={(e) => setClient(e.target.value)} placeholder="Nome do cliente" /></div>
         </div>
+        <AutoCheck label="cliente" value={client} detected={detected?.client} matches={matches?.client} onPick={setClient} />
         <div className="field-detected">
           <div className="k">Operador</div>
           <div className="v"><input type="text" value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="Nome do operador" /></div>
         </div>
+        <AutoCheck label="operador" value={operator} detected={detected?.operator} matches={matches?.operator} onPick={setOperator} />
       </div>
 
       <label>Conteúdo registrado {source === "audio" ? "(transcrição)" : "(texto)"}</label>
@@ -464,6 +514,104 @@ function Confirm({ client, setClient, operator, setOperator, text, setText, lang
         <button className="btn ok" onClick={onSave}>✓ Confirmar e registrar</button>
       </div>
     </div>
+  );
+}
+
+function AutoCheck({ label, value, detected, matches, onPick }: any) {
+  if (!detected) return null;
+  const list = (matches || []) as any[];
+  const exact = list.find((m) => m.exact);
+  const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const valueIsExisting = list.some((m) => norm(m.name) === norm(value || ""));
+
+  return (
+    <div className="autocheck">
+      {list.length > 0 ? (
+        <>
+          <span className="ac-label">{exact ? "✓ já existe na base:" : "parecidos na base:"}</span>
+          {list.map((m) => (
+            <button key={m.name} type="button"
+              className={"ac-chip" + (norm(m.name) === norm(value || "") ? " on" : "")}
+              onClick={() => onPick(m.name)} title={`${m.count} registro(s)`}>
+              {m.name} <i>· {m.count}</i>
+            </button>
+          ))}
+          {!valueIsExisting && (
+            <button type="button" className="ac-chip new" onClick={() => onPick(detected)}>+ criar novo “{detected}”</button>
+          )}
+        </>
+      ) : (
+        <span className="ac-label">nenhum {label} parecido — será criado novo ✨</span>
+      )}
+    </div>
+  );
+}
+
+function Lookup({ result, onRun }: any) {
+  const [term, setTerm] = useState("");
+  const [entities, setEntities] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/records?entities=1").then((r) => r.json()).then((d) => setEntities(d.names || [])).catch(() => setEntities([]));
+  }, []);
+
+  return (
+    <>
+      <div className="card">
+        <h1>🔎 Buscar informações</h1>
+        <p className="sub">Busque por <b>cliente ou operador</b>. Reunimos tudo que se sabe sobre a pessoa — nos dois papéis — com resumo por IA e histórico.</p>
+        <label>Nome (cliente ou operador)</label>
+        <input type="text" list="entityList" value={term} placeholder="Digite ou escolha…"
+          onChange={(e) => setTerm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && onRun(term)} />
+        <datalist id="entityList">{entities.map((n) => <option key={n} value={n} />)}</datalist>
+        {entities.length > 0 && (
+          <div className="examples">{entities.slice(0, 12).map((n) => <span className="ex" key={n} onClick={() => { setTerm(n); onRun(n); }}>{n}</span>)}</div>
+        )}
+        <div className="row end">
+          <button className="btn" onClick={() => onRun(term)}>Buscar →</button>
+        </div>
+      </div>
+
+      {result?.loading && (
+        <div className="card center"><div className="big-ic">🧠</div><h2>Reunindo informações…</h2><p><span className="spinner" /></p></div>
+      )}
+      {result?.error && <div className="card"><p className="note warn">⚠️ {result.error}</p></div>}
+      {result && !result.loading && !result.error && <LookupResult data={result} />}
+    </>
+  );
+}
+
+function LookupResult({ data }: any) {
+  const roles = data.roles || { asClient: 0, asOperator: 0 };
+  const stats = data.stats || {};
+  if (!data.records || data.records.length === 0) {
+    return <div className="card"><h2>{data.name}</h2><p className="sub">{data.summary}</p></div>;
+  }
+  return (
+    <>
+      <div className="card">
+        <h1>{data.name}</h1>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {roles.asClient > 0 && <span className="chip">👤 Cliente em <b>{roles.asClient}</b></span>}
+          {roles.asOperator > 0 && <span className="chip">🎧 Operador em <b>{roles.asOperator}</b></span>}
+          <span className="chip">Total: <b>{stats.total || data.records.length}</b></span>
+        </div>
+        {(stats.operatorsWhoServed?.length > 0) && <p className="sub" style={{ margin: "4px 0" }}>Atendido por: <b>{stats.operatorsWhoServed.join(", ")}</b></p>}
+        {(stats.clientsServed?.length > 0) && <p className="sub" style={{ margin: "4px 0" }}>Clientes atendidos: <b>{stats.clientsServed.join(", ")}</b></p>}
+        <div className="summary">{data.summary}</div>
+      </div>
+      <div className="card">
+        <h2>Histórico completo</h2>
+        {data.records.map((r: any) => (
+          <div className="record-item" key={r.id}>
+            <div className="h">
+              <div className="names">{r.source === "audio" ? "🎤" : "✍️"} {r.client_name}{r.operator_name ? ` · operador ${r.operator_name}` : ""}</div>
+              <div className="meta">{new Date(r.created_at).toLocaleString("pt-BR")}<br />por {r.recorded_by} {r.language === "en" ? "🇬🇧" : r.language === "pt" ? "🇧🇷" : ""}</div>
+            </div>
+            <div className="txt">{r.transcript || (r.transcription_status === "failed" || r.transcription_status === "pending" ? "(áudio salvo — transcrição pendente)" : "")}</div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -521,7 +669,7 @@ function Summary({ data, onNew, onSearch }: any) {
   );
 }
 
-function Dashboard({ stats, onClient }: any) {
+function Dashboard({ stats, onClient, onEntity }: any) {
   if (!stats) {
     return <div className="card center"><div className="big-ic">📊</div><h1>Carregando dashboard…</h1><p><span className="spinner" /></p></div>;
   }
@@ -531,6 +679,7 @@ function Dashboard({ stats, onClient }: any) {
   const t = stats.totals || {};
   const maxR = Math.max(1, ...(stats.byRecorder || []).map((x: any) => x.count));
   const maxC = Math.max(1, ...(stats.byClient || []).map((x: any) => x.count));
+  const maxO = Math.max(1, ...(stats.byOperator || []).map((x: any) => x.count));
   return (
     <>
       <div className="card">
@@ -576,6 +725,21 @@ function Dashboard({ stats, onClient }: any) {
           </div>
         ))}
       </div>
+
+      {(stats.byOperator || []).length > 0 && (
+        <div className="card">
+          <h2>🎧 Operadores mais ativos</h2>
+          <p className="sub">Clique em um operador para buscar tudo sobre ele.</p>
+          {(stats.byOperator || []).map((o: any, i: number) => (
+            <div className="rankrow" key={o.name}>
+              <div className={"pos" + (i < 3 ? " top" : "")}>{i + 1}</div>
+              <div className="nm link" onClick={() => onEntity && onEntity(o.name)}>{o.name}</div>
+              <div className="bar"><i style={{ width: `${(o.count / maxO) * 100}%` }} /></div>
+              <div className="ct">{o.count}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {(stats.recent || []).length > 0 && (
         <div className="card">

@@ -92,6 +92,16 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .7s linear infinite;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 .proto-flag{position:fixed;top:0;left:0;right:0;text-align:center;font-size:11px;background:#15233a;color:#9ec1ff;padding:3px;letter-spacing:.3px;z-index:40}
+/* Auto-checagem (sugestões de cliente/operador existentes) */
+.autocheck{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 8px 100px}
+@media(max-width:560px){.autocheck{margin-left:0}}
+.ac-label{font-size:11px;color:var(--muted)}
+.ac-chip{font-size:12px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:5px 10px;cursor:pointer;color:var(--text)}
+.ac-chip:hover{border-color:var(--brand)}
+.ac-chip.on{border-color:var(--brand);background:#202742;color:#cdd6ff}
+.ac-chip i{color:var(--muted);font-style:normal;font-size:11px}
+.ac-chip.new{border-style:dashed;color:#9be7bd;border-color:rgba(46,204,113,.4)}
+
 /* Navegação topo */
 .nav{display:flex;gap:6px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:18px}
 .nav button{flex:1;background:transparent;border:0;color:var(--muted);font-size:13px;font-weight:600;padding:9px;border-radius:7px;cursor:pointer}
