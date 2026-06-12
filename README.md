@@ -82,6 +82,14 @@ Aba **📊 Dashboard** no topo mostra:
 - **👥 Clientes com mais informações** — ranking clicável (abre o resumo do cliente).
 - **🕒 Atividade recente**.
 
+## 🎨 Design "Clarity"
+
+A interface segue o design **Clarity** (mockup criado no Claude Design), mobile-first:
+- Fundo azul claro (`#EBF0FF`), accent `#3859E8`, tipografia **Inter**.
+- **Navegação inferior**: Gravar · Buscar · Painel.
+- Telas: Login → Captura (mic grande pulsante + texto) → Gravando (waveform + timer) → IA processando (Whisper / GPT-4o) → Confirmar (auto-checagem + alerta de duplicidade) → Salvo → Buscar (lista ao vivo) → Resumo IA → Dashboard (KPIs + atividade + top usuários).
+- Estilos centralizados em `src/app/globals.css` (design tokens em CSS variables); ícones em `src/lib/icons.tsx`.
+
 ## 🏗️ Arquitetura planejada (código completo — próxima fase)
 
 - **Frontend/Backend:** Next.js (App Router) na **Vercel**
