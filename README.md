@@ -59,6 +59,14 @@ npm run dev                      # http://localhost:3000
 | `POST /api/extract` | GPT identifica cliente, operador e idioma do texto/transcrição. |
 | `POST /api/records` | Confirma e salva o registro (update do áudio ou insert de texto). |
 | `POST /api/summary` | Consolida todos os registros de um cliente + resumo por IA. |
+| `GET /api/stats` | Dashboard: ranking de quem mais coletou e clientes com mais informações. |
+
+### Dashboard
+Aba **📊 Dashboard** no topo mostra:
+- **KPIs**: total de registros, clientes, coletores, áudio vs texto, transcrições pendentes.
+- **🏆 Quem mais coletou informações** — ranking por nº de registros.
+- **👥 Clientes com mais informações** — ranking clicável (abre o resumo do cliente).
+- **🕒 Atividade recente**.
 
 ## 🏗️ Arquitetura planejada (código completo — próxima fase)
 

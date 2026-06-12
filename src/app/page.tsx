@@ -16,6 +16,8 @@ interface DraftRecord {
 
 export default function Page() {
   const [step, setStep] = useState<Step>("login");
+  const [view, setView] = useState<"collect" | "dashboard">("collect");
+  const [stats, setStats] = useState<any>(null);
   const [user, setUser] = useState("");
   const [busyMsg, setBusyMsg] = useState("");
 
@@ -190,6 +192,21 @@ export default function Page() {
     }
   }
 
+  async function openDashboard() {
+    setView("dashboard");
+    setStats(null);
+    try {
+      const res = await fetch("/api/stats");
+      const data = await res.json();
+      setStats(data);
+    } catch { setStats({ error: true }); }
+  }
+
+  function clientFromDashboard(name: string) {
+    setView("collect");
+    loadSummary(name);
+  }
+
   async function openSearch() {
     setStep("search");
     try {
@@ -210,11 +227,24 @@ export default function Page() {
           {user && <div className="who">Gravando como <b>{user}</b> · <a onClick={logout}>trocar</a></div>}
         </header>
 
-        <div className="steps">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className={"s" + (n === stepNum ? " active" : n < stepNum ? " done" : "")} />
-          ))}
-        </div>
+        {user && step !== "login" && (
+          <div className="nav">
+            <button className={view === "collect" ? "active" : ""} onClick={() => setView("collect")}>🎙️ Coletar</button>
+            <button className={view === "dashboard" ? "active" : ""} onClick={openDashboard}>📊 Dashboard</button>
+          </div>
+        )}
+
+        {view === "dashboard" && <Dashboard stats={stats} onClient={clientFromDashboard} />}
+
+        {view === "collect" && (
+        <>
+        {step !== "login" && (
+          <div className="steps">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div key={n} className={"s" + (n === stepNum ? " active" : n < stepNum ? " done" : "")} />
+            ))}
+          </div>
+        )}
 
         {step === "login" && <Login initial={user} onSubmit={login} />}
 
@@ -263,6 +293,8 @@ export default function Page() {
 
         {step === "search" && (
           <Search clients={clientsList} term={searchTerm} setTerm={setSearchTerm} onBack={resetCapture} onGo={() => searchTerm.trim() && loadSummary(searchTerm.trim())} />
+        )}
+        </>
         )}
       </div>
     </>
@@ -412,6 +444,79 @@ function Summary({ data, onNew, onSearch }: any) {
         <button className="btn ghost" onClick={onNew}>+ Novo registro</button>
         <button className="btn" onClick={onSearch}>🔎 Buscar outro cliente</button>
       </div>
+    </>
+  );
+}
+
+function Dashboard({ stats, onClient }: any) {
+  if (!stats) {
+    return <div className="card center"><div className="big-ic">📊</div><h1>Carregando dashboard…</h1><p><span className="spinner" /></p></div>;
+  }
+  if (stats.error) {
+    return <div className="card"><h1>Dashboard</h1><p className="sub">Não foi possível carregar as estatísticas.</p></div>;
+  }
+  const t = stats.totals || {};
+  const maxR = Math.max(1, ...(stats.byRecorder || []).map((x: any) => x.count));
+  const maxC = Math.max(1, ...(stats.byClient || []).map((x: any) => x.count));
+  return (
+    <>
+      <div className="card">
+        <h1>📊 Dashboard</h1>
+        <p className="sub">Visão geral de tudo que foi coletado.</p>
+        <div className="kpis">
+          <div className="kpi"><div className="n">{t.records || 0}</div><div className="l">registros</div></div>
+          <div className="kpi"><div className="n">{t.clients || 0}</div><div className="l">clientes</div></div>
+          <div className="kpi"><div className="n">{t.recorders || 0}</div><div className="l">coletores</div></div>
+          <div className="kpi"><div className="n">{t.audio || 0}🎤 / {t.text || 0}✍️</div><div className="l">áudio / texto</div></div>
+        </div>
+        {t.pendingTranscriptions > 0 && (
+          <div className="note warn" style={{ marginTop: 14 }}>
+            ⚠️ {t.pendingTranscriptions} áudio(s) com transcrição pendente/falha — preservados para nova tentativa.
+          </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2>🏆 Quem mais coletou informações</h2>
+        <p className="sub">Ranking por número de registros.</p>
+        {(stats.byRecorder || []).length === 0 && <p className="muted">Nenhum dado ainda.</p>}
+        {(stats.byRecorder || []).map((r: any, i: number) => (
+          <div className="rankrow" key={r.name}>
+            <div className={"pos" + (i < 3 ? " top" : "")}>{i + 1}</div>
+            <div className="nm">{r.name}</div>
+            <div className="bar"><i style={{ width: `${(r.count / maxR) * 100}%` }} /></div>
+            <div className="ct">{r.count}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <h2>👥 Clientes com mais informações</h2>
+        <p className="sub">Clique em um cliente para ver o resumo consolidado.</p>
+        {(stats.byClient || []).length === 0 && <p className="muted">Nenhum dado ainda.</p>}
+        {(stats.byClient || []).map((c: any, i: number) => (
+          <div className="rankrow" key={c.name}>
+            <div className={"pos" + (i < 3 ? " top" : "")}>{i + 1}</div>
+            <div className="nm link" onClick={() => onClient(c.name)}>{c.name}</div>
+            <div className="bar"><i style={{ width: `${(c.count / maxC) * 100}%` }} /></div>
+            <div className="ct">{c.count}</div>
+          </div>
+        ))}
+      </div>
+
+      {(stats.recent || []).length > 0 && (
+        <div className="card">
+          <h2>🕒 Atividade recente</h2>
+          {(stats.recent || []).map((r: any, i: number) => (
+            <div className="record-item" key={i}>
+              <div className="h">
+                <div className="names">{r.source === "audio" ? "🎤" : "✍️"} {r.client_name}{r.operator_name ? ` · ${r.operator_name}` : ""}</div>
+                <div className="meta">{new Date(r.created_at).toLocaleString("pt-BR")}<br />por {r.recorded_by} {r.language === "en" ? "🇬🇧" : r.language === "pt" ? "🇧🇷" : ""}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
