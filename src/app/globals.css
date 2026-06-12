@@ -25,20 +25,22 @@
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
+html,body{height:100%;overflow:hidden}
 body{
   font-family:var(--f);
   background:var(--bg);
   color:var(--txt);
-  min-height:100dvh;
+  height:100dvh;
+  overscroll-behavior:none;
   -webkit-font-smoothing:antialiased;
 }
 
-/* ── app shell ── */
+/* ── app shell — preenche 100% da tela em mobile ── */
 .app{
-  max-width:430px;
+  width:100%;
+  max-width:520px;
   margin:0 auto;
-  min-height:100dvh;
+  height:100dvh;
   display:flex;
   flex-direction:column;
   background:var(--bg);
@@ -46,18 +48,21 @@ body{
   overflow:hidden;
 }
 
-/* ── tela base ── */
+/* ── tela base — só o conteúdo rola ── */
 .screen{
   flex:1;
+  min-height:0;
   display:flex;
   flex-direction:column;
-  padding-top:56px;
+  padding-top:calc(env(safe-area-inset-top, 0px) + 18px);
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 12px);
   overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
   animation:slideUp .22s ease both;
 }
-.screen.with-nav{ padding-bottom:88px }
+.screen.with-nav{ padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 80px) }
 .screen.white{ background:var(--surf) }
-.screen.center{ justify-content:center;align-items:center }
+.screen.center{ justify-content:center;align-items:center;padding-top:calc(env(safe-area-inset-top, 0px) + 18px) }
 
 /* ── tipografia ── */
 .t-title{ font-size:24px;font-weight:800;color:var(--txt);letter-spacing:-.8px }
@@ -157,16 +162,15 @@ textarea{ resize:none;line-height:1.55 }
 
 /* ── navegação inferior ── */
 .bottom-nav{
-  position:fixed;
+  position:absolute;
   bottom:0;
-  left:50%;
-  transform:translateX(-50%);
+  left:0;
+  right:0;
   width:100%;
-  max-width:430px;
   display:flex;
   border-top:1px solid var(--brd);
   background:var(--surf);
-  padding-bottom:28px;
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 8px);
   z-index:20;
 }
 .nav-item{
