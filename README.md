@@ -29,6 +29,37 @@ python3 -m http.server 8080 --directory prototipo
 # abra http://localhost:8080
 ```
 
+## 🚀 App v1 (Next.js + Supabase + OpenAI)
+
+Aplicação real na raiz do projeto. Fluxo:
+
+- **Captura única**: um campo de texto onde a pessoa **clica no microfone para gravar** ou simplesmente **escreve**.
+- **Áudio é sacrossanto**: ao gravar, o áudio vai **primeiro** para o Supabase Storage e um registro é criado apontando para ele — **antes** de qualquer transcrição. Se a transcrição (Whisper) falhar, o áudio **permanece salvo** (`transcription_status = failed`) e pode ser re-tentado depois (`/api/transcribe/retry`). Um trigger no banco **impede o DELETE** de qualquer registro com áudio.
+- **IA** identifica idioma (PT/EN), cliente e operador → usuário **confirma/corrige** → salva.
+- **Resumo** consolida todos os registros do cliente.
+
+### Setup local
+```bash
+npm install
+cp .env.example .env.local      # preencha Supabase + OpenAI
+# No Supabase: rode supabase/schema.sql no SQL Editor (cria tabela + bucket + triggers)
+npm run dev                      # http://localhost:3000
+```
+
+### Deploy na Vercel
+1. Importe o repositório na Vercel (framework Next.js, detectado automaticamente).
+2. Configure as variáveis de ambiente (as mesmas do `.env.example`).
+3. Deploy.
+
+### Rotas de API
+| Rota | Função |
+|------|--------|
+| `POST /api/transcribe` | Salva o áudio no Storage, cria o registro e tenta transcrever (Whisper). Áudio nunca é deletado. |
+| `POST /api/transcribe/retry` | Re-tenta transcrever um registro pendente/falho baixando o áudio salvo. |
+| `POST /api/extract` | GPT identifica cliente, operador e idioma do texto/transcrição. |
+| `POST /api/records` | Confirma e salva o registro (update do áudio ou insert de texto). |
+| `POST /api/summary` | Consolida todos os registros de um cliente + resumo por IA. |
+
 ## 🏗️ Arquitetura planejada (código completo — próxima fase)
 
 - **Frontend/Backend:** Next.js (App Router) na **Vercel**
@@ -58,6 +89,9 @@ create table records (
 4. Resumo → busca registros do cliente → GPT consolida → exibe.
 
 ## Status
-- [x] Protótipo navegável do fluxo
-- [ ] App Next.js + Supabase + OpenAI
+- [x] Protótipo navegável do fluxo (`prototipo/`)
+- [x] App Next.js + Supabase + OpenAI (v1)
+- [x] Captura por microfone/texto num único campo
+- [x] Áudio preservado mesmo sem transcrição
+- [ ] Login real (Supabase Auth)
 - [ ] Deploy na Vercel
