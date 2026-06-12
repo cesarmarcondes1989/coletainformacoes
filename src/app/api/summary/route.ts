@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { openai, CHAT_MODEL } from "@/lib/openai";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 // gera um resumo geral: quem conversou e o que foi dito.
 export async function POST(req: NextRequest) {
   try {
+    if (!(await getAuthedUser())) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     const { client } = await req.json();
     if (!client || String(client).trim().length < 1) {
       return NextResponse.json({ error: "Cliente é obrigatório." }, { status: 400 });

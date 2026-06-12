@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai, CHAT_MODEL, normalizeLanguage } from "@/lib/openai";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Usa o GPT para identificar cliente, operador e idioma a partir do texto/transcrição.
 export async function POST(req: NextRequest) {
   try {
+    if (!(await getAuthedUser())) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     const { text } = await req.json();
     if (!text || String(text).trim().length < 3) {
       return NextResponse.json({ error: "Texto muito curto." }, { status: 400 });

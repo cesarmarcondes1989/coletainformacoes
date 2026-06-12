@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Dashboard: quem mais coletou informações e quais clientes têm mais registros.
 export async function GET() {
   try {
+    if (!(await getAuthedUser())) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     const { data, error } = await supabaseAdmin
       .from("records")
       .select("recorded_by, client_name, operator_name, source, transcription_status, language, created_at")

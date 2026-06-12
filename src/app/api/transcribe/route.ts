@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { toFile } from "openai";
 import { supabaseAdmin, AUDIO_BUCKET } from "@/lib/supabaseAdmin";
 import { openai, TRANSCRIBE_MODEL, normalizeLanguage } from "@/lib/openai";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,15 +17,17 @@ export const maxDuration = 60;
 //   3) tenta transcrever         -> se falhar, áudio + registro permanecem
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+    const recordedBy = user.name;
+
     const form = await req.formData();
     const audio = form.get("audio");
-    const recordedBy = String(form.get("recordedBy") || "").trim();
 
     if (!(audio instanceof Blob)) {
       return NextResponse.json({ error: "Áudio ausente." }, { status: 400 });
-    }
-    if (!recordedBy) {
-      return NextResponse.json({ error: "Identificação de quem gravou é obrigatória." }, { status: 400 });
     }
 
     const bytes = Buffer.from(await audio.arrayBuffer());
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
       .from("records")
       .insert({
         recorded_by: recordedBy,
+        recorded_by_id: user.id,
         source: "audio",
         audio_path: path,
         transcription_status: "pending",

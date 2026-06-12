@@ -38,6 +38,12 @@ Aplicação real na raiz do projeto. Fluxo:
 - **IA** identifica idioma (PT/EN), cliente e operador → usuário **confirma/corrige** → salva.
 - **Resumo** consolida todos os registros do cliente.
 
+### Autenticação (Supabase Auth)
+- Login/cadastro por **e-mail + senha**. O nome informado no cadastro vira o "quem gravou".
+- **"Quem gravou" é derivado no servidor** a partir da sessão autenticada — o usuário não consegue registrar em nome de outro (dashboard confiável).
+- Todas as rotas `/api/*` exigem autenticação.
+- ⚙️ No Supabase: *Authentication → Providers → Email*. Para entrar imediatamente após o cadastro (sem e-mail de confirmação), **desative "Confirm email"** em *Authentication → Sign In / Providers*. Com confirmação ativa, o usuário precisa clicar no link enviado por e-mail antes do primeiro login.
+
 ### Setup local
 ```bash
 npm install
@@ -101,5 +107,6 @@ create table records (
 - [x] App Next.js + Supabase + OpenAI (v1)
 - [x] Captura por microfone/texto num único campo
 - [x] Áudio preservado mesmo sem transcrição
-- [ ] Login real (Supabase Auth)
+- [x] Login real (Supabase Auth — email/senha)
+- [x] Dashboard (quem mais coletou / clientes com mais informações)
 - [ ] Deploy na Vercel

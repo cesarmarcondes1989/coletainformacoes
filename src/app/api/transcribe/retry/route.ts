@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { toFile } from "openai";
 import { supabaseAdmin, AUDIO_BUCKET } from "@/lib/supabaseAdmin";
 import { openai, TRANSCRIBE_MODEL, normalizeLanguage } from "@/lib/openai";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export const maxDuration = 60;
 // O áudio nunca foi apagado, então sempre é possível tentar de novo.
 export async function POST(req: NextRequest) {
   try {
+    if (!(await getAuthedUser())) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     const { recordId } = await req.json();
     if (!recordId) {
       return NextResponse.json({ error: "recordId é obrigatório." }, { status: 400 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRecorder } from "@/lib/useRecorder";
+import { createSupabaseBrowser } from "@/lib/supabase/client";
 
 type Step = "login" | "capture" | "processing" | "confirm" | "saved" | "summary" | "search";
 
@@ -15,10 +16,12 @@ interface DraftRecord {
 }
 
 export default function Page() {
+  const supabase = useMemo(() => createSupabaseBrowser(), []);
+  const [authReady, setAuthReady] = useState(false);
   const [step, setStep] = useState<Step>("login");
   const [view, setView] = useState<"collect" | "dashboard">("collect");
   const [stats, setStats] = useState<any>(null);
-  const [user, setUser] = useState("");
+  const [user, setUser] = useState(""); // nome de exibição do usuário autenticado
   const [busyMsg, setBusyMsg] = useState("");
 
   // captura
@@ -41,17 +44,25 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const u = localStorage.getItem("coleta_user");
-    if (u) { setUser(u); setStep("capture"); }
-  }, []);
+    function applyUser(u: any) {
+      if (u) {
+        const name = (u.user_metadata?.full_name as string) || u.email || "Usuário";
+        setUser(name);
+        setStep((s) => (s === "login" ? "capture" : s));
+      } else {
+        setUser("");
+        setStep("login");
+        setView("collect");
+      }
+      setAuthReady(true);
+    }
+    supabase.auth.getUser().then(({ data }) => applyUser(data.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => applyUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, [supabase]);
 
-  function login(name: string) {
-    setUser(name);
-    localStorage.setItem("coleta_user", name);
-    setStep("capture");
-  }
-  function logout() {
-    localStorage.removeItem("coleta_user");
+  async function logout() {
+    await supabase.auth.signOut();
     setUser("");
     setStep("login");
   }
@@ -80,7 +91,6 @@ export default function Page() {
     try {
       const fd = new FormData();
       fd.append("audio", blob, "gravacao.webm");
-      fd.append("recordedBy", user);
       const res = await fetch("/api/transcribe", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok && !data.recordId) throw new Error(data.error || "Falha ao processar áudio.");
@@ -154,7 +164,6 @@ export default function Page() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          recordedBy: user,
           client: client.trim(),
           operator: operator.trim(),
           language: draft.language,
@@ -224,29 +233,29 @@ export default function Page() {
       <div className="wrap">
         <header className="top">
           <div className="logo"><span className="dot">🎙️</span> Coleta de Informações</div>
-          {user && <div className="who">Gravando como <b>{user}</b> · <a onClick={logout}>trocar</a></div>}
+          {user && <div className="who">Gravando como <b>{user}</b> · <a onClick={logout}>sair</a></div>}
         </header>
 
-        {user && step !== "login" && (
-          <div className="nav">
-            <button className={view === "collect" ? "active" : ""} onClick={() => setView("collect")}>🎙️ Coletar</button>
-            <button className={view === "dashboard" ? "active" : ""} onClick={openDashboard}>📊 Dashboard</button>
-          </div>
+        {!authReady && (
+          <div className="card center"><div className="big-ic">🔐</div><h1>Carregando…</h1><p><span className="spinner" /></p></div>
         )}
+        {authReady && step === "login" && <Auth supabase={supabase} />}
+        {authReady && step !== "login" && (
+        <>
+        <div className="nav">
+          <button className={view === "collect" ? "active" : ""} onClick={() => setView("collect")}>🎙️ Coletar</button>
+          <button className={view === "dashboard" ? "active" : ""} onClick={openDashboard}>📊 Dashboard</button>
+        </div>
 
         {view === "dashboard" && <Dashboard stats={stats} onClient={clientFromDashboard} />}
 
         {view === "collect" && (
         <>
-        {step !== "login" && (
-          <div className="steps">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <div key={n} className={"s" + (n === stepNum ? " active" : n < stepNum ? " done" : "")} />
-            ))}
-          </div>
-        )}
-
-        {step === "login" && <Login initial={user} onSubmit={login} />}
+        <div className="steps">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div key={n} className={"s" + (n === stepNum ? " active" : n < stepNum ? " done" : "")} />
+          ))}
+        </div>
 
         {step === "processing" && (
           <div className="card center">
@@ -296,6 +305,8 @@ export default function Page() {
         )}
         </>
         )}
+        </>
+        )}
       </div>
     </>
   );
@@ -303,19 +314,81 @@ export default function Page() {
 
 /* ---------------- Componentes ---------------- */
 
-function Login({ initial, onSubmit }: { initial: string; onSubmit: (n: string) => void }) {
-  const [name, setName] = useState(initial);
+function Auth({ supabase }: { supabase: any }) {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: "warn" | "ok" | "info"; text: string } | null>(null);
+
+  async function submit() {
+    setMsg(null);
+    if (!email.trim() || password.length < 6) {
+      setMsg({ type: "warn", text: "Informe e-mail e senha (mín. 6 caracteres)." });
+      return;
+    }
+    if (mode === "signup" && fullName.trim().length < 2) {
+      setMsg({ type: "warn", text: "Informe seu nome." });
+      return;
+    }
+    setBusy(true);
+    try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { data: { full_name: fullName.trim() } },
+        });
+        if (error) throw error;
+        // Se a confirmação de e-mail estiver ativa, não há sessão ainda.
+        if (!data.session) {
+          setMsg({ type: "info", text: "Conta criada! Verifique seu e-mail para confirmar e depois faça login." });
+          setMode("login");
+        }
+        // Se confirmação estiver desativada, o onAuthStateChange já loga.
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw error;
+      }
+    } catch (e: any) {
+      setMsg({ type: "warn", text: e?.message || "Falha na autenticação." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="card">
-      <h1>Quem está gravando?</h1>
-      <p className="sub">Toda informação fica vinculada a você. (Em breve: login via Supabase Auth.)</p>
-      <label>Seu nome</label>
-      <input type="text" value={name} placeholder="Ex.: Mariana Alves"
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && name.trim().length >= 2 && onSubmit(name.trim())} autoFocus />
+      <h1>{mode === "login" ? "Entrar" : "Criar conta"}</h1>
+      <p className="sub">Toda informação registrada fica vinculada à sua conta (Supabase Auth).</p>
+
+      {mode === "signup" && (
+        <>
+          <label>Seu nome</label>
+          <input type="text" value={fullName} placeholder="Ex.: Mariana Alves" onChange={(e) => setFullName(e.target.value)} />
+        </>
+      )}
+      <label>E-mail</label>
+      <input type="text" value={email} placeholder="voce@empresa.com" onChange={(e) => setEmail(e.target.value)} />
+      <label>Senha</label>
+      <input type="password" value={password} placeholder="mín. 6 caracteres"
+        onChange={(e) => setPassword(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit()} />
+
+      {msg && <div className={"note " + msg.type}>{msg.text}</div>}
+
       <div className="row end">
-        <button className="btn" disabled={name.trim().length < 2} onClick={() => onSubmit(name.trim())}>Continuar →</button>
+        <button className="btn" disabled={busy} onClick={submit}>
+          {busy ? <span className="spinner" /> : mode === "login" ? "Entrar →" : "Criar conta →"}
+        </button>
       </div>
+      <p className="muted" style={{ marginTop: 14, fontSize: 13 }}>
+        {mode === "login" ? "Não tem conta? " : "Já tem conta? "}
+        <a onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMsg(null); }}>
+          {mode === "login" ? "Criar conta" : "Entrar"}
+        </a>
+      </p>
     </div>
   );
 }
@@ -354,7 +427,7 @@ function Capture({ text, setText, recorder, onMic, onProcess, onBack, audioSaved
       )}
 
       <div className="row between">
-        <button className="btn ghost" onClick={onBack}>← Trocar usuário</button>
+        <button className="btn ghost" onClick={onBack}>← Sair</button>
         <button className="btn" onClick={onProcess} disabled={recorder.recording}>Processar com IA →</button>
       </div>
       {recordId && <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>ref. áudio: {recordId}</p>}

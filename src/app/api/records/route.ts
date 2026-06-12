@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getAuthedUser } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,8 +11,11 @@ export const dynamic = "force-dynamic";
 //   - source 'text' : cria um novo registro
 export async function POST(req: NextRequest) {
   try {
+    const user = await getAuthedUser();
+    if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    const recordedBy = user.name;
+
     const body = await req.json();
-    const recordedBy = String(body.recordedBy || "").trim();
     const client = String(body.client || "").trim();
     const operator = String(body.operator || "").trim();
     const language = body.language ? String(body.language) : null;
@@ -32,6 +36,7 @@ export async function POST(req: NextRequest) {
         .from("records")
         .update({
           recorded_by: recordedBy,
+          recorded_by_id: user.id,
           client_name: client,
           operator_name: operator || null,
           language,
@@ -51,6 +56,7 @@ export async function POST(req: NextRequest) {
       .from("records")
       .insert({
         recorded_by: recordedBy,
+        recorded_by_id: user.id,
         client_name: client,
         operator_name: operator || null,
         language,
@@ -71,6 +77,7 @@ export async function POST(req: NextRequest) {
 
 // GET /api/records/clients-like via ?clients=1 -> lista distinta de clientes (para busca)
 export async function GET(req: NextRequest) {
+  if (!(await getAuthedUser())) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   const { searchParams } = new URL(req.url);
   if (searchParams.get("clients")) {
     const { data, error } = await supabaseAdmin

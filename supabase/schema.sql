@@ -7,7 +7,8 @@
 create table if not exists public.records (
   id uuid primary key default gen_random_uuid(),
 
-  -- QUEM gravou (v1: nome livre; futuramente auth.users.id)
+  -- QUEM gravou: id do usuário autenticado + nome de exibição (derivados no servidor)
+  recorded_by_id uuid references auth.users(id),
   recorded_by text not null,
 
   -- identificados pela IA e confirmados pelo usuário
@@ -79,3 +80,8 @@ alter table public.records enable row level security;
 insert into storage.buckets (id, name, public)
 values ('recordings', 'recordings', false)
 on conflict (id) do nothing;
+
+-- ============================================================
+-- MIGRAÇÃO (caso a tabela já exista de uma versão anterior):
+--   alter table public.records add column if not exists recorded_by_id uuid references auth.users(id);
+-- ============================================================
